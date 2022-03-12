@@ -1,0 +1,36 @@
+handlebars templates
+
+main_template has following partials:
+  - inside #sidebar:
+    - all_todos_template: {todos.length}
+
+    - all_list_template: takes todos_by_date object that contains list of arrays --> each array, get {{this.length}}  and {{@key}} is key name that will be data-title="mm/yy"
+    this.length = number of todos, lr this.length
+
+    { todos_by_date: [ {"mm/yy": [todos] }, ...{} ]}
+
+    - completed_todos_template: {{done.length}}
+
+
+  - #items div
+
+    - title_template: takes { current_section: {title, data}
+      - header of items div
+
+    - list_template: takes { selected: [ {item} ] }
+      - item_partial: takes an item object; checks if {{completed}}, takes id, title, due_date
+
+
+Todo object: only id and title are required
+- id
+- title
+- day
+- month
+- year
+- completed: boolean
+- description
+
+methods:
+- check if has a month and year
+- mark done
+- mark undone
