@@ -13,7 +13,25 @@
 <body>
   <script type="text/x-handlebars" id="main_template">
     <input type="checkbox" id="sidebar_toggle"/>
-    <!-- TODO: sidebar div goes here!!! -->
+    <div id="sidebar">
+      <section id="all">
+        <div id="all_todos">
+          {{> all_todos_template}}
+        </div>
+        <article id="all_lists">
+          {{> all_list_template}}
+        </article>
+      </section>
+      <section class="completed" id="completed_items">
+        <div id="completed_todos">
+          {{> completed_todos_template}}
+        </div>
+        <article id="completed_lists">
+          {{> completed_list_template}}
+        </article>
+      </section>
+    </div>
+
 
   <div id="items" >
     <header>
@@ -121,10 +139,10 @@
         </div>
     </main>
   </div>
+
   </script>
 
-  <!-- item partial template; part of list template   -->
-  <!-- shows todo item details, checkbox etc.   -->
+
   <script type="text/x-handlebars" id="item_partial" data-type="partial">
     <tr  data-id="{{id}}" >
       <td class="list_item">
@@ -139,14 +157,12 @@
     </tr>
   </script>
 
-  <!-- list template  -->
   <script type="text/x-handlebars" id="list_template" data-type="partial">
     {{#each selected}}
       {{> item_partial}}
     {{/each}}
   </script>
 
-  <!-- all todos template header  -->
   <script type="text/x-handlebars" id="all_todos_template" data-type="partial">
     <header data-title="All Todos" data-total="{{todos.length}}" id="all_header">
       <dl>
@@ -155,7 +171,7 @@
     </header>
   </script>
 
-  <!-- complete todos template header  -->
+
   <script type="text/x-handlebars" id="completed_todos_template" data-type="partial">
     <header data-title="Completed" data-total="{{done.length}}" id="all_done_header">
       <dl>
@@ -165,18 +181,17 @@
     </header>
   </script>
 
-  <!-- todos by date template nav -->
+
   <script type="text/x-handlebars" id="all_list_template" data-type="partial">
     {{#each todos_by_date}}
       <dl data-title="{{@key}}" data-total="{{this.length}}">
         <dt><time>{{@key}}</time></dt>
+
         <dd>{{this.length}}</dd>
       </dl>
     {{/each}}
   </script>
 
-  <!-- done todos by date nav  -->
-  <!-- "mm/yy" dt wtih count of todos as dd -->
   <script type="text/x-handlebars" id="completed_list_template" data-type="partial">
     {{#each done_todos_by_date}}
       <dl data-title="{{@key}}" data-total="{{this.length}}" id="{{@key}}">
@@ -185,8 +200,6 @@
       </dl>
     {{/each}}
   </script>
-
-  <!-- current section title header e.g. "1/14" with 3 todos  -->
   <script type="text/x-handlebars" id="title_template" data-type="partial">
     <label for="sidebar_toggle">
      <img src="images/hamburger.png" alt="Toggle Sidebar" />

@@ -1,4 +1,3 @@
-let FORM;
 document.addEventListener('DOMContentLoaded', (e) => {
   let templates = {}
   let todolist;
@@ -6,159 +5,169 @@ document.addEventListener('DOMContentLoaded', (e) => {
   class TodoList {
     constructor(todos) {
       this.todos = todos;
-      // array of section titles ['no due date', 'mm/yy', 'completed']
-      this.sections = ['All Todos', 'Completed', 'No Due Date'];
+      this.doneTodos = this._getDoneTodos()
+      this.currentTodoId = null;
+      this._formatDueDates()
 
-      // extract these from todos and looping through sections?
-      this.doneTodos;
-      this.todosByDate;
-      this.todosNoDate; //not sure if i need this
+      // Objects of due date keys and array of todos
+      this.todosByDate = this._getTodosByDate(this.todos)
+      this.todosByDateDone = this._getTodosByDate(this.doneTodos)
 
-      // Track state of current selected list and its itemse
-      this.currentSection = this.sections[0];
-      this.selectedTodos = this.todos; // initialze to all todos
+      // Track state of current selected list and its todo items
+      this.currentSection = 'All Todos';
+      this.selectedTodos = this.todos;
 
-      //dynamically created elements
       this.renderMain()
-      this.modalLayer = document.querySelector('#modal_layer')
-      this.form = document.querySelector('#form_modal')
-      this.table = document.querySelector('tbody')
+    }
 
-      this.bindEvents()
+    _getTodosByDate(list) {
+      let obj = {}
+      list.forEach((todo, i) => {
+        if (!obj[todo.due_date]) {
+          obj[todo.due_date] = [todo]
+        } else {
+          obj[todo.due_date].push(todo)
+        }
+      });
+      return obj;
+    }
 
+    _getNoDueDateTodos(list) {
+      return list.filter(todo => !todo.month && !todo.year)
+    }
+
+    _getDoneTodos() {
+      return this.todos.filter(todo => todo.completed)
+    }
+
+    // create a duedate key for each todo formatted {mm/yy}
+    _formatDueDates() {
+      this.todos = this.todos.reduce((result, todo, currentIndex) => {
+        if (todo.month && todo.year) {
+          todo['due_date'] = `${todo.month}/${todo.year.substr(2,2)}`
+        } else {
+          todo['due_date'] = `No Due Date`
+        }
+        result.push(todo)
+        return result
+        }, []);
+    }
+
+    // sorts due date keys
+    _sortByDate(obj) {
+      let keys = Object.keys(obj).sort(compareKeys)
+
+      let sorted = keys.reduce((result, key) => {
+        result[key] = obj[key];
+        return result;
+      }, {})
+
+      return sorted;
+
+      function compareKeys(key1, key2) {
+        if (key1 === 'No Due Date' && key2 !=='No Due Date') {
+          return -1;
+        }
+        if (key1 !=='No Due Date' && key2 === 'No Due Date') {
+          return 1;
+        }
+
+        let [month1, year1] = key1.split('/')
+        let [month2, year2] = key2.split('/')
+
+        if (year1 < year2) {
+          return -1;
+        } else if (year1 > year2) {
+          return 1;
+        } else if (month1 < month2) {
+          return -1;
+        } else if (month1 > month2) {
+          return 1;
+        } else {
+          return 0;
+        }
+      }
+
+    }
+    // sort completed todos to bottom of todo lists
+    _sortByDone(list) {
+      return list.sort(compareCompleted)
+
+      function compareCompleted(todo1, todo2) {
+        if (todo1.completed< todo2.completed) {
+          return -1;
+        } else if (todo1.completed> todo2.completed) {
+          return 1;
+        } else {
+          return 0;
+        }
+      }
     }
 
     bindEvents() {
+      this.form = document.querySelector('form')
+      this.modalLayer = document.querySelector('#modal_layer')
+      this.modal = document.querySelector('#form_modal')
+
+      this.modal.addEventListener('submit', this.submitForm.bind(this));
+
       this.modalLayer.addEventListener('click', this.hideForm.bind(this));
+
       document.querySelector('label[for="new_item"]').addEventListener('click', this.renderForm.bind(this));
-      this.table.addEventListener('click', this.handleTableClick.bind(this));
-      // todo: add a renderForm EL on the table
+
+      document.querySelector('tbody').addEventListener('click', this.handleTableClick.bind(this));
+
+      document.querySelector('button[name="complete"]').addEventListener('click', this.toggleTodoDone.bind(this));
+
+      document.querySelector('#sidebar').addEventListener('click', this.showTodosGroup.bind(this));
 
     }
 
-    handleTableClick(e) {
+    showTodosGroup(e) {
       e.preventDefault();
+      let all = document.querySelector('#all')
+      let completed = document.querySelector('#completed_items')
 
-      if (e.target.nodeName === 'TD' && e.target.className === 'delete') {
-        let id = e.target.closest('tr').dataset.id
-        console.log(id);
-        console.log('delete button clicked!');
-
-        fetch('/api/todos/' + id, {
-          method: 'DELETE',
-        })
-        .then((response) => {
-          if (!response.ok) throw new Error(response)
-          alert('Todo was deleted successfully!')
-          getTodos()
-        })
-        .catch((err) => console.error(err))
-
-      }
-    }
-
-    async addNewTodo(e) {
-      e.preventDefault();
-      // console.log(e.target.nodeName + ' was clicked!');
-      let form = document.querySelector('form')
-
-      let formData = new FormData(form)
-
-      if (formData.get('day') === 'Day') formData.delete('day')
-      if (formData.get('month') === 'Month') formData.delete('month')
-      if (formData.get('year') === 'Year') formData.delete('year')
-      if (formData.get('description') === '') formData.delete('description')
-
-      // console.log('== json data to submit ==');
-      // console.log(JSON.stringify(Object.fromEntries(formData)));
-      try {
-        let response = await fetch('/api/todos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json'},
-          body: JSON.stringify(Object.fromEntries(formData))
-        })
-        let data = await response.json()
-        this.hideForm()
-        getTodos() // ned the new todo to be wired into the delete event listener
-        // this.renderMain()
-      } catch (e) {
-        console.error(e);
+      // exit handler if todo group was not clicked
+      if ((!all.contains(e.target) && !completed.contains(e.target)) || e.target === all || e.target === completed ) {
+        return;
       }
 
-    }
-    // // TODO: reveal form prepopulated
-    updateTodo(e, id) {
-      e.preventDefault();
-      console.log(...arguments);
-      let form = document.querySelector('form')
-      let formData = new FormData(form)
+      let header = e.target.closest('header')
+      let parent = header ? header : e.target.closest('dl')
 
-      if (formData.get('day') === 'Day') formData.delete('day')
-      if (formData.get('month') === 'Month') formData.delete('month')
-      if (formData.get('year') === 'Year') formData.delete('year')
-      if (formData.get('description') === '') formData.delete('description')
+      let title;
+      let list;
+      title = parent.dataset.title
 
-      FORM= form;
-      console.log('== json data to update todo  ==');
-      console.log(JSON.stringify(Object.fromEntries(formData)));
-      // try {
-      //   let response = await fetch('/api/todos', {
-      //     method: 'POST',
-      //     headers: { 'Content-Type': 'application/json'},
-      //     body: JSON.stringify(Object.fromEntries(formData))
-      //   })
-      //   let data = await response.json()
-      //   todolist.todos.push(data)
-      //   todolist.hideForm()
-      //   todolist.renderMain()
-      //   }
-      // } catch (e) {
-      //   console.error(e);
-      // }
-
-
-    }
-
-    // reveals form
-    renderForm(e) {
-      e.preventDefault();
-      console.log(e.target.nodeName + 'was clicked!');
-      let addLink = document.querySelector('label[for="new_item"]')
-
-      if (e.target.closest('label') === addLink) {
-        console.log('add a new todo rendered the modal! ');
-
-        this.form.addEventListener('submit', this.addNewTodo.bind(this));
-
+      if (header && all.contains(e.target)) {
+        list = this.todos
+      } else if (header && completed.contains(e.target)) {
+        list = this.doneTodos
+      } else if (title === 'No Due Date' && all.contains(e.target)) {
+        list = this._getNoDueDateTodos(this.todos)
+      } else if (title === 'No Due Date' && completed.contains(e.target)) {
+        list = this._getNoDueDateTodos(this.doneTodos)
+      } else if (all.contains(e.target)) {
+        list = this.todosByDate[title]
       } else {
-        let tr = e.target.closest('tr')
-        let id = tr.getAttribute('data-id')
-
-        this.form.addEventListener('submit', this.updateTodo.bind(this));
+        list = this.todosByDateDone[title]
       }
 
-      this.showForm()
+      this.currentSection = title;
+      this.selectedTodos = list;
 
+      this.renderMain()
     }
 
-    showForm() {
-      this.modalLayer.classList.add('show')
-      this.form.classList.add('show')
-
-
-      this.modalLayer.classList.remove('hide')
-      this.form.classList.remove('hide')
-    }
-    hideForm() {
-      this.modalLayer.classList.remove('show')
-      this.form.classList.remove('show')
-      this.modalLayer.classList.add('hide')
-      this.form.classList.add('hide')
-
-    }
-
-    //creates context for main_template to render the DOM
     renderMain() {
+      // sort todo lists
+      this.todosByDate = this._sortByDate(this.todosByDate)
+      this.todosByDateDone = this._sortByDate(this.todosByDateDone)
+      this.todos = this._sortByDone(this.todos)
+      this.selectedTodos = this._sortByDone(this.selectedTodos)
+
+      // create context data structures
       let section = {
         title: this.currentSection,
         data: this.selectedTodos.length
@@ -166,39 +175,211 @@ document.addEventListener('DOMContentLoaded', (e) => {
 
       let context = {
         current_section: section,
-        selected: this.selectedTodos
+        selected: this.selectedTodos,
+        todos: this.todos,
+        todos_by_date: this.todosByDate,
+        done_todos_by_date: this.todosByDateDone,
+        todos: { length: this.todos.length },
+        done: { length: this.doneTodos.length }
       }
-      // TODO: initialze sidebar context
-      // console.log('context', context);
       let html = templates.main_template(context)
       document.body.innerHTML = ''
       document.body.insertAdjacentHTML('afterbegin', html)
 
+      this.bindEvents();
+
     }
 
-    // end TLodolist methods
+    handleTableClick(e) {
+      e.preventDefault();
+      this.currentTodoId = +e.target.closest('tr').dataset.id
+
+      // delete todo when trash icon clicked
+      if (e.target.nodeName === 'TD' && e.target.className === 'delete' || e.target.nodeName === 'IMG' && e.target.getAttribute('alt') === 'Delete') {
+
+        fetch('/api/todos/' + this.currentTodoId, {
+          method: 'DELETE',
+        })
+        .then((response) => {
+          if (!response.ok) throw new Error(response)
+
+          this._removeTodo()
+          this._updateAllLists()
+          this.renderMain();
+
+        })
+        .catch((err) => console.error(err))
+      } else if (e.target.nodeName === 'LABEL') {
+        this.renderForm(e)
+      } else {
+        this.toggleTodoDone()
+      }
+    }
+
+    // reveals form to edit/add todo
+    renderForm(e) {
+      e.preventDefault();
+      let addLink = document.querySelector('label[for="new_item"]')
+
+      // show blank new todo form
+      if (e.target.closest('label') === addLink) {
+        this.currentTodoId = null;
+
+      // prepopulate form with selected todo details
+      } else {
+        fetch('/api/todos/' + this.currentTodoId)
+        .then(response => response.json())
+        .then(data => {
+          for (let key in data) {
+            let element = this.form.querySelector('[name="'+ key + '"]')
+            if (!element || !data[key]) continue;
+            element.value = data[key]
+          }
+        }).catch(err => console.error(err))
+      }
+      this.showForm()
+
+    }
+
+    async submitForm(e) {
+      e.preventDefault();
+
+      let formData = new FormData(this.form)
+      if (formData.get('title').length < 3) {
+        alert('Title must be at least 3 characters long')
+        return;
+      }
+
+      if (formData.get('day') === 'Day') formData.delete('day')
+      if (formData.get('month') === 'Month') formData.delete('month')
+      if (formData.get('year') === 'Year') formData.delete('year')
+      if (formData.get('description') === '') formData.delete('description')
+
+      let method;
+      let url;
+
+      if (this.currentTodoId) {
+        method = 'PUT'
+        url = `/api/todos/${this.currentTodoId}`
+      } else {
+        method = 'POST',
+        url = `/api/todos/`
+      }
+
+      try {
+        let response = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json'},
+          body: JSON.stringify(Object.fromEntries(formData))
+        })
+        if (!response.ok) throw new Error(response)
+        let todo = await response.json()
+
+        if (method === 'POST') {
+          getTodos()
+        } else {
+          this._updateTodos(todo)
+          this.renderMain()
+        }
+
+        this.hideForm()
+
+      } catch (e) { console.error(e) }
+    }
+
+    // mark a todo done
+    async toggleTodoDone() {
+      let input = document.querySelector(`#item_${this.currentTodoId}`)
+
+      if (!input) {
+        alert('Cannot mark as complete as item has not been created yet!')
+        return;
+      }
+      console.log('is input currently checked', input.checked);
+      let status = input.checked ? false : true;
+
+      try {
+        let response = await fetch(`/api/todos/${this.currentTodoId}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({'completed' : status})
+        })
+        let todo = await response.json();
+        input.checked = todo.completed;
+
+        this._updateTodos(todo);
+        this.renderMain();
+        if (this.modal.classList.contains('show')) this.hideForm()
+
+      } catch (e) { console.error(e) }
+
+    }
+
+    showForm() {
+      this.modalLayer.classList.add('show')
+      this.modal.classList.add('show')
+      this.modalLayer.classList.remove('hide')
+      this.modal.classList.remove('hide')
+    }
+
+    hideForm() {
+      this.form.reset()
+      this.modalLayer.classList.remove('show')
+      this.modal.classList.remove('show')
+      this.modalLayer.classList.add('hide')
+      this.modal.classList.add('hide')
+      this.currentTodoId = null;
+
+    }
+
+    // replaces todolist and selected list with updated todo
+    _updateTodos(newTodo) {
+      let idx = this._getTodoIndex(this.todos)
+      this.todos.splice(idx,1, newTodo)
+
+      idx = this._getTodoIndex(this.selectedTodos)
+      this.selectedTodos.splice(idx,1, newTodo)
+
+      this._updateAllLists()
+    }
+
+    // if todos list was updated or modified, update each category of todos
+    _updateAllLists() {
+      this.doneTodos = this._getDoneTodos()
+      this._formatDueDates()
+
+      this.todosByDate = this._getTodosByDate(this.todos)
+      this.todosByDateDone = this._getTodosByDate(this.doneTodos)
+    }
+
+    _removeTodo() {
+      let idx = this._getTodoIndex(this.todos)
+      this.todos.splice(idx, 1)
+
+      idx = this._getTodoIndex(this.selectedTodos)
+      this.selectedTodos.splice(idx, 1)
+    }
+
+    _getTodoIndex(list) {
+      return list.findIndex(todo => todo.id === this.currentTodoId)
+      }
+
   }
 
   async function getTodos() {
     try {
       let response = await fetch('/api/todos')
       let data = await response.json();
-      console.log('loaded todos:', data);
 
       todolist = new TodoList(data)
-
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) {console.error(e) }
 
   }
-  // MAIN HERE
+  // MAIN
   compileAllTemplates()
   getTodos()
 
-
-
-  // compile templates
+  // HELPER
   function compileAllTemplates() {
     document.querySelectorAll('script[type="text/x-handlebars"]').forEach(tmpl => {
       templates[tmpl.id] = Handlebars.compile(tmpl.innerHTML)
@@ -207,6 +388,6 @@ document.addEventListener('DOMContentLoaded', (e) => {
     document.querySelectorAll('[data-type="partial"]').forEach(partial => {
       Handlebars.registerPartial(partial.id, templates[partial.id])
     })
-  }
+  }''
 
 });
