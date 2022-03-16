@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', (e) => {
       this.doneTodos = this._getDoneTodos()
       this.currentTodoId = null;
       this._formatDueDates()
-
+      
       // Objects of due date keys and array of todos
       this.todosByDate = this._getTodosByDate(this.todos)
       this.todosByDateDone = this._getTodosByDate(this.doneTodos)
@@ -104,21 +104,37 @@ document.addEventListener('DOMContentLoaded', (e) => {
       }
     }
 
+    // if todos list was updated or modified, update each category of todos
+    _updateAllLists() {
+      this.doneTodos = this._getDoneTodos()
+      this._formatDueDates()
+
+      this.todosByDate = this._getTodosByDate(this.todos)
+      this.todosByDateDone = this._getTodosByDate(this.doneTodos)
+    }
+
+    _removeTodo() {
+      let idx = this._getTodoIndex(this.todos)
+      this.todos.splice(idx, 1)
+
+      idx = this._getTodoIndex(this.selectedTodos)
+      this.selectedTodos.splice(idx, 1)
+    }
+
+    _getTodoIndex(list) {
+      return list.findIndex(todo => todo.id === this.currentTodoId)
+      }
+
     bindEvents() {
       this.form = document.querySelector('form')
       this.modalLayer = document.querySelector('#modal_layer')
       this.modal = document.querySelector('#form_modal')
 
       this.modal.addEventListener('submit', this.submitForm.bind(this));
-
       this.modalLayer.addEventListener('click', this.hideForm.bind(this));
-
       document.querySelector('label[for="new_item"]').addEventListener('click', this.renderForm.bind(this));
-
       document.querySelector('tbody').addEventListener('click', this.handleTableClick.bind(this));
-
       document.querySelector('button[name="complete"]').addEventListener('click', this.toggleTodoDone.bind(this));
-
       document.querySelector('#sidebar').addEventListener('click', this.showTodosGroup.bind(this));
 
     }
@@ -295,7 +311,6 @@ document.addEventListener('DOMContentLoaded', (e) => {
         alert('Cannot mark as complete as item has not been created yet!')
         return;
       }
-      console.log('is input currently checked', input.checked);
       let status = input.checked ? false : true;
 
       try {
@@ -343,26 +358,6 @@ document.addEventListener('DOMContentLoaded', (e) => {
       this._updateAllLists()
     }
 
-    // if todos list was updated or modified, update each category of todos
-    _updateAllLists() {
-      this.doneTodos = this._getDoneTodos()
-      this._formatDueDates()
-
-      this.todosByDate = this._getTodosByDate(this.todos)
-      this.todosByDateDone = this._getTodosByDate(this.doneTodos)
-    }
-
-    _removeTodo() {
-      let idx = this._getTodoIndex(this.todos)
-      this.todos.splice(idx, 1)
-
-      idx = this._getTodoIndex(this.selectedTodos)
-      this.selectedTodos.splice(idx, 1)
-    }
-
-    _getTodoIndex(list) {
-      return list.findIndex(todo => todo.id === this.currentTodoId)
-      }
 
   }
 
